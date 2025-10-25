@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Process chat messages with OpenAI API
+    Business: Process chat messages with custom GPT API
     Args: event - dict with httpMethod, body containing user message
           context - object with request_id attribute
     Returns: HTTP response with AI reply
@@ -32,7 +32,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     try:
-        import openai
+        import requests
         
         body_data = json.loads(event.get('body', '{}'))
         user_message = body_data.get('message', '')
@@ -45,28 +45,45 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
-        api_key = os.environ.get('OPENAI_API_KEY')
-        if not api_key:
+        api_url = os.environ.get('CUSTOM_GPT_URL')
+        api_key = os.environ.get('CUSTOM_GPT_API_KEY')
+        
+        if not api_url or not api_key:
             return {
                 'statusCode': 500,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'OpenAI API key not configured'}),
+                'body': json.dumps({'error': 'Custom GPT API not configured'}),
                 'isBase64Encoded': False
             }
         
-        client = openai.OpenAI(api_key=api_key)
-        
-        completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are MadAI, a helpful and friendly AI assistant."},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=500,
-            temperature=0.7
+        response = requests.post(
+            api_url,
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}'
+            },
+            json={
+                'model': 'gpt-3.5-turbo',
+                'messages': [
+                    {'role': 'system', 'content': 'You are MadAI, a helpful and friendly AI assistant.'},
+                    {'role': 'user', 'content': user_message}
+                ],
+                'max_tokens': 500,
+                'temperature': 0.7
+            },
+            timeout=30
         )
         
-        ai_response = completion.choices[0].message.content
+        if response.status_code != 200:
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': f'API error: {response.status_code}'}),
+                'isBase64Encoded': False
+            }
+        
+        result = response.json()
+        ai_response = result.get('choices', [{}])[0].get('message', {}).get('content', 'No response')
         
         return {
             'statusCode': 200,
