@@ -45,23 +45,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
-        api_url = os.environ.get('CUSTOM_GPT_URL')
-        api_key = os.environ.get('CUSTOM_GPT_API_KEY')
+        api_url = os.environ.get('CUSTOM_GPT_URL', 'https://mad-ai-programming-assistant--preview.poehali.dev/')
+        api_key = os.environ.get('CUSTOM_GPT_API_KEY', '')
         
-        if not api_url or not api_key:
-            return {
-                'statusCode': 500,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Custom GPT API not configured'}),
-                'isBase64Encoded': False
-            }
+        headers = {'Content-Type': 'application/json'}
+        if api_key:
+            headers['Authorization'] = f'Bearer {api_key}'
         
         response = requests.post(
             api_url,
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {api_key}'
-            },
+            headers=headers,
             json={
                 'model': 'gpt-3.5-turbo',
                 'messages': [
